@@ -180,9 +180,17 @@ Note: Power BI receives monthly updates with new features, and the service is co
             
             # Try OpenAI first (GPT-4)
             if self.openai_client:
-                return await self._get_openai_response(message, conversation_id, enhanced_context)
+                try:
+                    return await self._get_openai_response(message, conversation_id, enhanced_context)
+                except Exception as openai_error:
+                    logger.warning(f"OpenAI failed: {str(openai_error)}")
+                    if self.anthropic_client:
+                        logger.info("Falling back to Anthropic Claude...")
+                        return await self._get_anthropic_response(message, conversation_id, enhanced_context)
+                    else:
+                        raise openai_error
             
-            # Fallback to Anthropic (Claude)
+            # Use Anthropic if OpenAI not available
             elif self.anthropic_client:
                 return await self._get_anthropic_response(message, conversation_id, enhanced_context)
             

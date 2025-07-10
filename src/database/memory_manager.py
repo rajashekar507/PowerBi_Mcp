@@ -643,3 +643,18 @@ class MemoryManager:
                 "total_files_processed": len(self.file_info),
                 "error": str(e)
             }
+    
+    def get_conversation_files(self, conversation_id: str) -> List[str]:
+        """
+        Get all file paths for a conversation
+        """
+        try:
+            # Get file info for this conversation
+            file_info = self.get_file_info(conversation_id)
+            if file_info and "file_paths" in file_info:
+                return file_info["file_paths"]
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error getting conversation files: {str(e)}")
+            return []
