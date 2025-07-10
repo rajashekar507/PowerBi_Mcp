@@ -1,0 +1,82 @@
+[
+  {
+    "customer_id": "C001",
+    "name": "Acme Corp",
+    "industry": "Technology",
+    "revenue": 5000000,
+    "employees": 250,
+    "region": "North",
+    "signup_date": "2023-01-15",
+    "subscription_type": "Enterprise"
+  },
+  {
+    "customer_id": "C002", 
+    "name": "Global Solutions",
+    "industry": "Finance",
+    "revenue": 12000000,
+    "employees": 500,
+    "region": "South",
+    "signup_date": "2023-02-20",
+    "subscription_type": "Enterprise"
+  },
+  {
+    "customer_id": "C003",
+    "name": "Tech Startup",
+    "industry": "Technology", 
+    "revenue": 800000,
+    "employees": 25,
+    "region": "East",
+    "signup_date": "2023-03-10",
+    "subscription_type": "Professional"
+  },
+  {
+    "customer_id": "C004",
+    "name": "Manufacturing Inc",
+    "industry": "Manufacturing",
+    "revenue": 8500000,
+    "employees": 350,
+    "region": "West",
+    "signup_date": "2023-04-05",
+    "subscription_type": "Enterprise"
+  },
+  {
+    "customer_id": "C005",
+    "name": "Retail Chain",
+    "industry": "Retail",
+    "revenue": 15000000,
+    "employees": 1200,
+    "region": "North",
+    "signup_date": "2023-05-12",
+    "subscription_type": "Enterprise"
+  },
+  {
+    "customer_id": "C006",
+    "name": "Small Business",
+    "industry": "Services",
+    "revenue": 250000,
+    "employees": 8,
+    "region": "South",
+    "signup_date": "2023-06-18",
+    "subscription_type": "Basic"
+  },
+  {
+    "customer_id": "C007",
+    "name": "Healthcare Provider",
+    "industry": "Healthcare",
+    "revenue": 6500000,
+    "employees": 180,
+    "region": "East",
+    "signup_date": "2023-07-22",
+    "subscription_type": "Professional"
+  },
+  {
+    "customer_id": "C008",
+    "name": "Education Institute",
+    "industry": "Education",
+    "revenue": 3200000,
+    "employees": 95,
+    "region": "West",
+    "signup_date": "2023-08-30",
+    "subscription_type": "Professional"
+  }
+]

@@ -2,14 +2,38 @@ import json
 import os
 import sqlite3
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import asyncio
 from pathlib import Path
+import numpy as np
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def safe_json_dumps(obj):
+    """
+    Safely serialize objects to JSON, handling numpy/pandas types
+    """
+    def convert_types(obj):
+        if isinstance(obj, (np.integer, np.floating)):
+            return float(obj) if np.isfinite(obj) else None
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, (pd.Timestamp, pd.Timedelta)):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {key: convert_types(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_types(item) for item in obj]
+        else:
+            return obj
+    
+    return json.dumps(convert_types(obj))
 
 class MemoryManager:
     """
@@ -276,8 +300,8 @@ class MemoryManager:
                     VALUES (?, ?, ?)
                 ''', (
                     conversation_id,
-                    json.dumps(file_paths),
-                    json.dumps(analysis_data)
+                    safe_json_dumps(file_paths),
+                    safe_json_dumps(analysis_data)
                 ))
                 conn.commit()
             
@@ -349,7 +373,7 @@ class MemoryManager:
                     VALUES (?, ?, ?)
                 ''', (
                     conversation_id,
-                    json.dumps(plan_data),
+                    safe_json_dumps(plan_data),
                     user_request
                 ))
                 conn.commit()
@@ -619,98 +643,3 @@ class MemoryManager:
                 "total_files_processed": len(self.file_info),
                 "error": str(e)
             }
-    
-    def add_file_info(self, conversation_id: str, file_paths: List[str], analysis_data: Dict):
-        """
-        Add file information to the conversation
-        """
-        try:
-            # Store in memory
-            self.file_info[conversation_id] = {
-                "file_paths": file_paths,
-                "analysis_data": analysis_data,
-                "uploaded_at": datetime.now().isoformat()
-            }
-            
-            # Store individual files in database
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                
-                for file_path in file_paths:
-                    original_name = os.path.basename(file_path)
-                    file_type = os.path.splitext(original_name)[1].lower()
-                    
-                    cursor.execute('''
-                        INSERT INTO conversation_files (conversation_id, file_path, original_name, file_type)
-                        VALUES (?, ?, ?, ?)
-                    ''', (conversation_id, file_path, original_name, file_type))
-                
-                conn.commit()
-            
-            logger.info(f"Added file info for conversation {conversation_id}: {len(file_paths)} files")
-            
-        except Exception as e:
-            logger.error(f"Error adding file info: {str(e)}")
-    
-    def get_conversation_files(self, conversation_id: str) -> List[str]:
-        """
-        Get all file paths for a conversation
-        """
-        try:
-            # Try in-memory cache first
-            if conversation_id in self.file_info:
-                return self.file_info[conversation_id]["file_paths"]
-            
-            # Load from database
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT file_path FROM conversation_files
-                    WHERE conversation_id = ?
-                    ORDER BY uploaded_at ASC
-                ''', (conversation_id,))
-                
-                file_paths = [row[0] for row in cursor.fetchall()]
-                return file_paths
-            
-        except Exception as e:
-            logger.error(f"Error getting conversation files: {str(e)}")
-            return []
-    
-    def delete_conversation(self, conversation_id: str):
-        """
-        Delete a conversation and all related data
-        """
-        try:
-            # Remove from memory
-            if conversation_id in self.conversations:
-                del self.conversations[conversation_id]
-            if conversation_id in self.file_info:
-                del self.file_info[conversation_id]
-            if conversation_id in self.dashboard_plans:
-                del self.dashboard_plans[conversation_id]
-            
-            # Remove from database
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                
-                # Delete messages
-                cursor.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
-                
-                # Delete files
-                cursor.execute("DELETE FROM conversation_files WHERE conversation_id = ?", (conversation_id,))
-                cursor.execute("DELETE FROM file_info WHERE conversation_id = ?", (conversation_id,))
-                
-                # Delete dashboard plans
-                cursor.execute("DELETE FROM dashboard_plans WHERE conversation_id = ?", (conversation_id,))
-                
-                # Delete conversation
-                cursor.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
-                
-                conn.commit()
-            
-            logger.info(f"Deleted conversation {conversation_id}")
-            
-        except Exception as e:
-            logger.error(f"Error deleting conversation: {str(e)}")
-            raise e

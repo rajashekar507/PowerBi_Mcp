@@ -162,7 +162,7 @@ async def get_config():
         "debug_mode": os.getenv("DEBUG", "True").lower() == "true"
     }
 
-@app.post("/chat", response_model=ConversationResponse)
+@app.post("/api/chat", response_model=ConversationResponse)
 async def chat_endpoint(message: ChatMessage, background_tasks: BackgroundTasks):
     """
     Main chat endpoint - handles natural language requests for dashboard creation
@@ -270,7 +270,7 @@ How can I help you today?"""
             progress=100
         )
 
-@app.post("/upload")
+@app.post("/api/upload")
 async def upload_files(files: List[UploadFile] = File(...), conversation_id: str = ""):
     """
     Handle file uploads with comprehensive validation and security checks
@@ -369,7 +369,7 @@ async def upload_files(files: List[UploadFile] = File(...), conversation_id: str
         logger.error(f"Error uploading files: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error uploading files: {str(e)}")
 
-@app.get("/conversations")
+@app.get("/api/conversations")
 async def get_conversations():
     """
     Get list of all conversations
@@ -381,7 +381,7 @@ async def get_conversations():
         logger.error(f"Error getting conversations: {str(e)}")
         return {"conversations": []}
 
-@app.get("/conversations/{conversation_id}")
+@app.get("/api/conversations/{conversation_id}")
 async def get_conversation(conversation_id: str):
     """
     Get specific conversation with messages
@@ -393,7 +393,7 @@ async def get_conversation(conversation_id: str):
         logger.error(f"Error getting conversation {conversation_id}: {str(e)}")
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-@app.get("/conversations/{conversation_id}/files")
+@app.get("/api/conversations/{conversation_id}/files")
 async def get_conversation_files(conversation_id: str):
     """
     Get files for a specific conversation
@@ -413,7 +413,7 @@ async def get_conversation_files(conversation_id: str):
         logger.error(f"Error getting files for conversation {conversation_id}: {str(e)}")
         return {"files": []}
 
-@app.delete("/conversations/{conversation_id}")
+@app.delete("/api/conversations/{conversation_id}")
 async def delete_conversation(conversation_id: str):
     """
     Delete a conversation
@@ -425,7 +425,7 @@ async def delete_conversation(conversation_id: str):
         logger.error(f"Error deleting conversation {conversation_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Error deleting conversation")
 
-@app.post("/create-dashboard")
+@app.post("/api/create-dashboard")
 async def create_dashboard(request: DashboardRequest, background_tasks: BackgroundTasks):
     """
     Create Power BI dashboard based on request and uploaded files
@@ -466,7 +466,7 @@ async def create_dashboard(request: DashboardRequest, background_tasks: Backgrou
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating dashboard: {str(e)}")
 
-@app.get("/job-status/{job_id}")
+@app.get("/api/job-status/{job_id}")
 async def get_job_status(job_id: str):
     """
     Get the status of a dashboard creation job
@@ -476,48 +476,6 @@ async def get_job_status(job_id: str):
     
     return active_jobs[job_id]
 
-@app.get("/conversation/{conversation_id}")
-async def get_conversation(conversation_id: str):
-    """
-    Get conversation history
-    """
-    try:
-        messages = memory_manager.get_conversation(conversation_id)
-        return {
-            "conversation_id": conversation_id,
-            "messages": messages
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting conversation: {str(e)}")
-
-@app.get("/conversations")
-async def list_conversations():
-    """
-    List all conversations
-    """
-    try:
-        conversations = memory_manager.list_conversations()
-        return {"conversations": conversations}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing conversations: {str(e)}")
-
-@app.delete("/conversation/{conversation_id}")
-async def delete_conversation(conversation_id: str):
-    """
-    Delete a conversation and its files
-    """
-    try:
-        # Delete conversation from memory
-        memory_manager.delete_conversation(conversation_id)
-        
-        # Delete uploaded files
-        upload_dir = f"uploads/{conversation_id}"
-        if os.path.exists(upload_dir):
-            shutil.rmtree(upload_dir)
-        
-        return {"message": "Conversation deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting conversation: {str(e)}")
 
 async def create_dashboard_background(job_id: str, conversation_id: str, user_request: str, file_paths: List[str]):
     """

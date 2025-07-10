@@ -48,7 +48,7 @@ class AIClient:
                 return base64.b64encode(image_file.read()).decode('utf-8')
         except Exception as e:
             logger.error(f"Error encoding image {image_path}: {str(e)}")
-            return None
+            return ""
     
     def _is_image_file(self, file_path: str) -> bool:
         """
@@ -396,7 +396,7 @@ Use this current information to provide up-to-date responses. Do not mention kno
                 })
             
             # Use vision model if images are present
-            model = "gpt-4o" if image_files else "gpt-4-turbo-preview"
+            model = "gpt-4o" if image_files else "gpt-4o"
             
             response = await self.openai_client.chat.completions.create(
                 model=model,
