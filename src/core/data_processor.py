@@ -547,7 +547,7 @@ class DataProcessor:
                 df[col] = df[col].fillna('Unknown')
             elif pd.api.types.is_datetime64_any_dtype(df[col]):
                 # For datetime, forward fill or use a default date
-                df[col] = df[col].fillna(method='ffill')
+                df[col] = df[col].ffill()
         
         return df
     
