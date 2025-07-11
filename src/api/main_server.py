@@ -12,8 +12,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 import logging
 
-# Load environment variables from config directory
-load_dotenv("config/.env")
+# Load environment variables from root directory
+load_dotenv(".env")
 
 # Configure logging
 logging.basicConfig(

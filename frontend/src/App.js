@@ -4,115 +4,115 @@ import './App.css';
 
 const API_BASE_URL = '/api';
 
+const themes = {
+  default: {
+    name: 'Default',
+    description: 'Clean and professional',
+    colors: ['#000000', '#ffffff', '#f0f0f0', '#e0e0e0']
+  },
+  deepOcean: {
+    name: 'Deep Ocean',
+    description: 'Calm and sophisticated',
+    colors: ['#1e3a8a', '#3b82f6', '#60a5fa', '#93c5fd']
+  },
+  sunsetGlow: {
+    name: 'Sunset Glow',
+    description: 'Warm and inviting',
+    colors: ['#dc2626', '#f97316', '#fbbf24', '#fde047']
+  },
+  forestRetreat: {
+    name: 'Forest Retreat',
+    description: 'Natural and serene',
+    colors: ['#166534', '#16a34a', '#4ade80', '#bbf7d0']
+  },
+  monochromeElegance: {
+    name: 'Monochrome Elegance',
+    description: 'Classic and minimalist',
+    colors: ['#000000', '#374151', '#6b7280', '#d1d5db']
+  },
+  purpleDream: {
+    name: 'Purple Dream',
+    description: 'Creative and modern',
+    colors: ['#7c3aed', '#a855f7', '#c084fc', '#e9d5ff']
+  }
+};
+
 function App() {
-  const [conversations, setConversations] = useState([]);
-  const [currentConversationId, setCurrentConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [conversations, setConversations] = useState([]);
+  const [currentConversationId, setCurrentConversationId] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [activeJobs, setActiveJobs] = useState({});
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loadingConversation, setLoadingConversation] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState('default');
+  const [showThemeModal, setShowThemeModal] = useState(false);
   
   const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const pollInterval = useRef(null);
 
-  // Initialize app
-  useEffect(() => {
-    loadConversations();
-    return () => {
-      if (pollInterval.current) {
-        clearInterval(pollInterval.current);
-      }
-    };
-  }, []);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Poll for job status updates
   useEffect(() => {
-    if (Object.keys(activeJobs).length > 0) {
-      pollInterval.current = setInterval(checkJobStatuses, 2000);
-    } else if (pollInterval.current) {
-      clearInterval(pollInterval.current);
-      pollInterval.current = null;
-    }
-    
-    return () => {
-      if (pollInterval.current) {
-        clearInterval(pollInterval.current);
-      }
-    };
-  }, [activeJobs]);
+    loadConversations();
+    const savedTheme = localStorage.getItem('chat-theme') || 'default';
+    setCurrentTheme(savedTheme);
+    applyTheme(savedTheme);
+  }, []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const applyTheme = (themeName) => {
+    document.body.className = `theme-${themeName}`;
   };
 
-  // Load conversations list
+  const handleThemeChange = (themeName) => {
+    setCurrentTheme(themeName);
+    applyTheme(themeName);
+    localStorage.setItem('chat-theme', themeName);
+    setShowThemeModal(false);
+  };
+
   const loadConversations = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/conversations`);
       setConversations(response.data.conversations || []);
     } catch (error) {
       console.error('Error loading conversations:', error);
-      setConversations([]);
     }
   };
 
-  // Load specific conversation
+  const startNewConversation = () => {
+    setCurrentConversationId('');
+    setMessages([]);
+    setUploadedFiles([]);
+  };
+
   const loadConversation = async (conversationId) => {
     if (loadingConversation) return;
     
+    setLoadingConversation(true);
     try {
-      setLoadingConversation(true);
       const response = await axios.get(`${API_BASE_URL}/conversations/${conversationId}`);
+      setMessages(response.data.messages || []);
+      setCurrentConversationId(conversationId);
       
-      if (response.data && response.data.messages) {
-        setMessages(response.data.messages);
-        setCurrentConversationId(conversationId);
-        
-        // Load files for this conversation
-        try {
-          const filesResponse = await axios.get(`${API_BASE_URL}/conversations/${conversationId}/files`);
-          if (filesResponse.data && filesResponse.data.files) {
-            setUploadedFiles(filesResponse.data.files);
-          }
-        } catch (filesError) {
-          console.error('Error loading conversation files:', filesError);
-          setUploadedFiles([]);
-        }
-      }
+      const filesResponse = await axios.get(`${API_BASE_URL}/conversations/${conversationId}/files`);
+      setUploadedFiles(filesResponse.data.files || []);
     } catch (error) {
       console.error('Error loading conversation:', error);
-      setMessages([]);
-      setUploadedFiles([]);
     } finally {
       setLoadingConversation(false);
     }
   };
 
-  // Start new conversation
-  const startNewConversation = () => {
-    setMessages([]);
-    setUploadedFiles([]);
-    setCurrentConversationId('');
-    setActiveJobs({});
-  };
-
-  // Delete conversation
   const deleteConversation = async (conversationId) => {
     try {
       await axios.delete(`${API_BASE_URL}/conversations/${conversationId}`);
-      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
-      
-      // If we're deleting the current conversation, start a new one
+      setConversations(conversations.filter(conv => conv.id !== conversationId));
       if (currentConversationId === conversationId) {
         startNewConversation();
       }
@@ -121,75 +121,43 @@ function App() {
     }
   };
 
-  // Duplicates removed - using functions defined earlier
-
   const sendMessage = async () => {
-    if (!inputMessage.trim() && uploadedFiles.length === 0) return;
+    if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage = inputMessage.trim();
+    const userMessage = {
+      role: 'user',
+      content: inputMessage,
+      timestamp: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
 
-    // Add user message to UI immediately
-    if (userMessage) {
-      const newMessage = {
-        role: 'user',
-        content: userMessage,
-        timestamp: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, newMessage]);
-    }
-
     try {
-      // Send chat message
       const response = await axios.post(`${API_BASE_URL}/chat`, {
-        message: userMessage || 'I have uploaded files for dashboard creation',
+        message: inputMessage,
         conversation_id: currentConversationId
       });
 
       const assistantMessage = {
         role: 'assistant',
         content: response.data.response,
-        timestamp: new Date().toISOString(),
-        dashboard_url: response.data.dashboard_url,
-        download_link: response.data.download_link
+        timestamp: new Date().toISOString()
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      setCurrentConversationId(response.data.conversation_id);
-
-      // If there are uploaded files and this looks like a dashboard request, create dashboard
-      if (uploadedFiles.length > 0 && (userMessage.toLowerCase().includes('dashboard') || 
-          userMessage.toLowerCase().includes('chart') || userMessage.toLowerCase().includes('visualization'))) {
-        
-        const dashboardResponse = await axios.post(`${API_BASE_URL}/create-dashboard`, {
-          message: userMessage,
-          conversation_id: response.data.conversation_id,
-          file_paths: uploadedFiles.map(f => f.path)
-        });
-
-        if (dashboardResponse.data.job_id) {
-          setActiveJobs(prev => ({
-            ...prev,
-            [dashboardResponse.data.job_id]: {
-              conversation_id: response.data.conversation_id,
-              status: 'processing',
-              progress: 0
-            }
-          }));
-        }
+      
+      if (!currentConversationId && response.data.conversation_id) {
+        setCurrentConversationId(response.data.conversation_id);
+        loadConversations();
       }
-
-      // Refresh conversations list
-      loadConversations();
-
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
-        timestamp: new Date().toISOString(),
-        error: true
+        content: 'I encountered an issue processing your request. Please try again.',
+        timestamp: new Date().toISOString()
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -204,316 +172,140 @@ function App() {
     }
   };
 
-  const handleFileUpload = async (files) => {
+  const handleFileUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
     const formData = new FormData();
-    
-    Array.from(files).forEach(file => {
+    files.forEach(file => {
       formData.append('files', file);
     });
-    
-    if (currentConversationId) {
-      formData.append('conversation_id', currentConversationId);
-    }
+    formData.append('conversation_id', currentConversationId);
 
     try {
-      // Don't disable chat during file upload
       const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
-      // Update uploaded files list with more details
-      const newFiles = response.data.file_names.map(name => ({ 
-        name, 
-        path: name,
-        type: name.split('.').pop().toLowerCase(),
+      const fileNames = response.data.file_names || [];
+      const fileObjects = fileNames.map(name => ({
+        filename: name,
         uploadTime: new Date().toISOString()
       }));
+      setUploadedFiles(prev => [...prev, ...fileObjects]);
       
-      setUploadedFiles(prev => [...prev, ...newFiles]);
-      setCurrentConversationId(response.data.conversation_id);
-
-      // Just log success - no auto-message like modern chat interfaces
-      console.log('Files uploaded successfully:', response.data.file_names);
-
+      if (!currentConversationId && response.data.conversation_id) {
+        setCurrentConversationId(response.data.conversation_id);
+        loadConversations();
+      }
     } catch (error) {
       console.error('Error uploading files:', error);
-      let errorText = 'Error uploading files. Please try again.';
-      
-      if (error.response?.data?.detail) {
-        errorText = `Upload failed: ${error.response.data.detail}`;
-      } else if (error.response?.status === 413) {
-        errorText = 'File too large. Please upload files smaller than 100MB.';
-      } else if (error.response?.status === 400) {
-        errorText = 'Invalid file format. Please upload CSV, Excel, JSON, TXT, or image files.';
-      }
-      
-      const errorMessage = {
-        role: 'assistant', 
-        content: errorText,
-        timestamp: new Date().toISOString(),
-        error: true
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
-    // Don't disable chat after upload
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileUpload(files);
     }
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
+  const formatTimestamp = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit'
+    });
   };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const checkJobStatuses = async () => {
-    for (const jobId of Object.keys(activeJobs)) {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/job-status/${jobId}`);
-        const jobStatus = response.data;
-
-        setActiveJobs(prev => ({
-          ...prev,
-          [jobId]: jobStatus
-        }));
-
-        // If job completed, add result message and refresh conversation
-        if (jobStatus.status === 'completed' && jobStatus.response) {
-          const resultMessage = {
-            role: 'assistant',
-            content: jobStatus.response,
-            timestamp: new Date().toISOString(),
-            dashboard_url: jobStatus.dashboard_url,
-            download_link: jobStatus.download_link,
-            completed: true
-          };
-
-          setMessages(prev => {
-            // Check if we already added this completion message
-            const hasCompletionMessage = prev.some(msg => 
-              msg.completed && msg.content === jobStatus.response
-            );
-            
-            if (!hasCompletionMessage) {
-              return [...prev, resultMessage];
-            }
-            return prev;
-          });
-
-          // Remove from active jobs
-          setActiveJobs(prev => {
-            const newJobs = { ...prev };
-            delete newJobs[jobId];
-            return newJobs;
-          });
-        }
-        
-        // If job failed, show error
-        if (jobStatus.status === 'error') {
-          const errorMessage = {
-            role: 'assistant',
-            content: jobStatus.response || `Error: ${jobStatus.error}`,
-            timestamp: new Date().toISOString(),
-            error: true
-          };
-          setMessages(prev => [...prev, errorMessage]);
-
-          // Remove from active jobs
-          setActiveJobs(prev => {
-            const newJobs = { ...prev };
-            delete newJobs[jobId];
-            return newJobs;
-          });
-        }
-
-      } catch (error) {
-        console.error(`Error checking job ${jobId}:`, error);
-      }
-    }
-  };
-
-  // Duplicate deleteConversation removed
-
-  const formatMessage = (content) => {
-    // Simple markdown-like formatting
-    let formatted = content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code>$1</code>')
-      .replace(/\n/g, '<br/>');
-    
-    return { __html: formatted };
-  };
-
-  const renderProgressBar = (progress) => (
-    <div className="progress-bar">
-      <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-    </div>
-  );
 
   return (
     <div className="app">
       {/* Sidebar */}
-      <div className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+      <div className="sidebar">
         <div className="sidebar-header">
-          <h2>🤖 AI Power BI</h2>
-          <button 
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? '‹' : '›'}
-          </button>
+          <div className="sidebar-title">✨ Premium Chat</div>
         </div>
         
         <button className="new-chat-btn" onClick={startNewConversation}>
-          + New Dashboard
+          + New Chat
         </button>
 
         <div className="conversations-list">
           {conversations.map(conv => (
-            <div key={conv.id} className={`conversation-item ${currentConversationId === conv.id ? 'active' : ''}`}>
-              <div 
-                className="conversation-content"
-                onClick={() => loadConversation(conv.id)}
-              >
-                <div className="conversation-title">{conv.title}</div>
-                <div className="conversation-meta">
-                  {conv.message_count} messages • {new Date(conv.updated_at).toLocaleDateString()}
-                </div>
+            <div 
+              key={conv.id} 
+              className={`conversation-item ${currentConversationId === conv.id ? 'active' : ''}`}
+              onClick={() => loadConversation(conv.id)}
+            >
+              <div className="conversation-title">{conv.title}</div>
+              <div className="conversation-meta">
+                {conv.message_count} messages • {new Date(conv.updated_at).toLocaleDateString()}
               </div>
-              <button 
-                className="delete-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteConversation(conv.id);
-                }}
-              >
-                🗑️
-              </button>
             </div>
           ))}
+        </div>
+        
+        <div className="sidebar-footer">
+          <div className="sidebar-item">
+            <span>🌙</span> Dark Mode
+          </div>
+          <div className="sidebar-item" onClick={() => setShowThemeModal(true)}>
+            <span>🎨</span> Color Themes
+          </div>
+          <div className="sidebar-item">
+            <span>⚙️</span> Settings
+          </div>
         </div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main Content */}
       <div className="main-content">
         <div className="chat-header">
-          <h1>AI Power BI Dashboard Generator</h1>
-          <p>Upload your data and create professional Power BI dashboards just by chatting!</p>
+          <h1>✨ Premium Chat Interface</h1>
+          <p>Experience AI conversation with premium styling and color themes</p>
+          <div className="premium-badge">Premium</div>
         </div>
 
-        <div 
-          className={`chat-messages ${isDragging ? 'dragging' : ''}`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-        >
-          {messages.length === 0 && (
-            <div className="welcome-message">
-              <h3>👋 Welcome! I'm your AI Power BI Assistant</h3>
-              <p>I can help you create professional dashboards in minutes. Here's how:</p>
-              <div className="feature-grid">
-                <div className="feature">
-                  <div className="feature-icon">📁</div>
-                  <h4>1. Upload Your Data</h4>
-                  <p>Drop Excel, CSV, or JSON files here</p>
+        <div className="messages-container">
+          {messages.length === 0 ? (
+            <div className="welcome-screen">
+              <div className="welcome-message">
+                <div className="assistant-avatar">
+                  <div className="avatar-icon">🤖</div>
                 </div>
-                <div className="feature">
-                  <div className="feature-icon">💬</div>
-                  <h4>2. Describe Your Dashboard</h4>
-                  <p>"Create a sales dashboard with monthly trends"</p>
+                <div className="welcome-text">
+                  Hello! I'm your AI assistant with premium styling. How can I help you today?
                 </div>
-                <div className="feature">
-                  <div className="feature-icon">🎨</div>
-                  <h4>3. Get Your Dashboard</h4>
-                  <p>Receive a real, working Power BI dashboard</p>
-                </div>
-              </div>
-              <div className="example-prompts">
-                <h4>Try saying:</h4>
-                <div className="prompt-examples">
-                  <span className="prompt">"Create a sales dashboard with monthly trends"</span>
-                  <span className="prompt">"Build an executive summary with KPIs"</span>
-                  <span className="prompt">"Make a financial report with charts"</span>
+                <div className="welcome-timestamp">
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} AM
                 </div>
               </div>
             </div>
-          )}
-
-          {messages.map((message, index) => (
-            <div key={index} className={`message ${message.role} ${message.error ? 'error' : ''}`}>
-              <div className="message-wrapper">
+          ) : (
+            messages.map((message, index) => (
+              <div key={index} className={`message-wrapper ${message.role}`}>
                 <div className="message-avatar">
-                  {message.role === 'user' ? 'U' : message.role === 'assistant' ? 'AI' : '!'}
+                  {message.role === 'user' ? (
+                    <div className="user-avatar">
+                      <div className="avatar-icon">👤</div>
+                    </div>
+                  ) : (
+                    <div className="assistant-avatar">
+                      <div className="avatar-icon">🤖</div>
+                    </div>
+                  )}
                 </div>
                 <div className="message-content">
-                  <div 
-                    dangerouslySetInnerHTML={formatMessage(message.content)}
-                  />
-                  
-                  {message.dashboard_url && (
-                    <div className="dashboard-links">
-                      <a href={message.dashboard_url} target="_blank" rel="noopener noreferrer" className="dashboard-link">
-                        View Dashboard
-                      </a>
-                      {message.download_link && (
-                        <a href={message.download_link} target="_blank" rel="noopener noreferrer" className="dashboard-link">
-                          Download .pbix
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  
-                  {uploadedFiles.length > 0 && message.role === 'user' && index === messages.length - 1 && (
-                    <div className="uploaded-files">
-                      <div className="file-list">
-                        {uploadedFiles.map((file, fileIndex) => (
-                          <div key={fileIndex} className="file-item">
-                            📎 {file.name}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
+                  <div className="message-text">{message.content}</div>
                   <div className="message-timestamp">
-                    {new Date(message.timestamp).toLocaleTimeString()}
+                    {formatTimestamp(message.timestamp)}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-
-          {/* Active Jobs Progress */}
-          {Object.entries(activeJobs).map(([jobId, job]) => (
-            <div key={jobId} className="message assistant processing">
-              <div className="message-content">
-                <div className="processing-status">
-                  <div className="status-text">
-                    🔄 Creating your dashboard... ({job.progress || 0}%)
-                  </div>
-                  {renderProgressBar(job.progress || 0)}
-                  <div className="status-detail">
-                    Status: {job.status}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-
+            ))
+          )}
+          
           {isLoading && (
-            <div className="message assistant loading">
+            <div className="message-wrapper assistant">
+              <div className="message-avatar">
+                <div className="assistant-avatar">
+                  <div className="avatar-icon">🤖</div>
+                </div>
+              </div>
               <div className="message-content">
                 <div className="typing-indicator">
                   <span></span>
@@ -523,82 +315,94 @@ function App() {
               </div>
             </div>
           )}
-
           <div ref={messagesEndRef} />
         </div>
 
-
-
-        {/* Chat Input Container */}
-        <div className="chat-input-container">
-          <div className="chat-input-wrapper">
-            {/* File Upload Area */}
-            <div className="file-upload-area">
-              {uploadedFiles.length > 0 && (
-                <div className="uploaded-files-display">
-                  {uploadedFiles.map((file, index) => (
-                    <div key={index} className="uploaded-file-tag">
-                      📎 {file.name}
-                      <button 
-                        onClick={() => setUploadedFiles(prev => prev.filter((_, i) => i !== index))}
-                        style={{ background: 'none', border: 'none', color: '#999', marginLeft: '8px', cursor: 'pointer' }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={(e) => handleFileUpload(e.target.files)}
-                multiple
-                accept=".xlsx,.xls,.csv,.json,.txt,.png,.jpg,.jpeg,.gif,.bmp"
-                style={{ display: 'none' }}
-              />
-              
-              <button 
-                className="file-upload-button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-              >
-                📎 Attach files (Excel, CSV, JSON, Images)
-              </button>
-            </div>
-            
-            {/* Input Container */}
-            <div className="input-container">
-              <textarea
-                className="chat-input"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Message AI Power BI Assistant..."
-                disabled={isLoading}
-                rows={1}
-              />
-              
-              <button 
-                className="send-button"
-                onClick={sendMessage}
-                disabled={isLoading || (!inputMessage.trim() && uploadedFiles.length === 0)}
-              >
-                {isLoading ? (
-                  <div className="loading-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                ) : (
-                  '↑'
-                )}
-              </button>
-            </div>
+        <div className="input-area">
+          <div className="file-upload-section">
+            <input
+              type="file"
+              id="file-upload"
+              multiple
+              accept=".xlsx,.xls,.csv,.json,.png,.jpg,.jpeg"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+            <label htmlFor="file-upload" className="attach-btn">
+              📎 Attach files (Excel, CSV, JSON, Images)
+            </label>
+            {uploadedFiles.length > 0 && (
+              <div className="uploaded-files">
+                {uploadedFiles.map((file, index) => (
+                  <span key={index} className="file-tag">
+                    {file.filename}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="input-container">
+            <textarea
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message here..."
+              className="message-input"
+              rows="1"
+              disabled={isLoading}
+            />
+            <button 
+              onClick={sendMessage} 
+              className="send-btn"
+              disabled={isLoading || !inputMessage.trim()}
+            >
+              ↑
+            </button>
           </div>
         </div>
       </div>
+      
+      {/* Theme Modal */}
+      {showThemeModal && (
+        <div className="modal-overlay" onClick={() => setShowThemeModal(false)}>
+          <div className="theme-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🎨 Premium Color Themes</h3>
+              <button className="close-btn" onClick={() => setShowThemeModal(false)}>×</button>
+            </div>
+            <div className="themes-grid">
+              {Object.entries(themes).map(([key, theme]) => (
+                <div 
+                  key={key} 
+                  className={`theme-card ${currentTheme === key ? 'active' : ''}`}
+                  onClick={() => handleThemeChange(key)}
+                >
+                  <div className="theme-header">
+                    <div className="theme-name">{theme.name}</div>
+                    {currentTheme === key && <div className="active-badge">✓ Active</div>}
+                  </div>
+                  <div className="theme-colors">
+                    {theme.colors.map((color, index) => (
+                      <div key={index} className="color-dot" style={{ backgroundColor: color }}></div>
+                    ))}
+                  </div>
+                  <div className="theme-description">{theme.description}</div>
+                </div>
+              ))}
+            </div>
+            <div className="premium-features">
+              <h4>Premium Features</h4>
+              <ul>
+                <li>• 6 carefully crafted color palettes</li>
+                <li>• Automatic dark mode adaptation</li>
+                <li>• Persistent theme preferences</li>
+                <li>• Optimized for accessibility</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

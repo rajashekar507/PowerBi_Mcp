@@ -257,8 +257,18 @@ Make sure the plan uses the actual field names from the data and creates a profe
 """
         
         try:
+            # Try OpenAI first (GPT-4)
             if self.openai_client:
-                response = await self._get_openai_response(analysis_prompt, "dashboard_analysis")
+                try:
+                    response = await self._get_openai_response(analysis_prompt, "dashboard_analysis")
+                except Exception as openai_error:
+                    logger.warning(f"OpenAI failed during dashboard analysis: {str(openai_error)}")
+                    if self.anthropic_client:
+                        logger.info("Falling back to Anthropic Claude for dashboard analysis...")
+                        response = await self._get_anthropic_response(analysis_prompt, "dashboard_analysis")
+                    else:
+                        raise openai_error
+            # Use Anthropic if OpenAI not available
             elif self.anthropic_client:
                 response = await self._get_anthropic_response(analysis_prompt, "dashboard_analysis")
             else:
@@ -316,8 +326,18 @@ Generate proper DAX syntax using the actual table and column names from the sche
 """
         
         try:
+            # Try OpenAI first (GPT-4)
             if self.openai_client:
-                response = await self._get_openai_response(dax_prompt, "dax_generation")
+                try:
+                    response = await self._get_openai_response(dax_prompt, "dax_generation")
+                except Exception as openai_error:
+                    logger.warning(f"OpenAI failed during DAX generation: {str(openai_error)}")
+                    if self.anthropic_client:
+                        logger.info("Falling back to Anthropic Claude for DAX generation...")
+                        response = await self._get_anthropic_response(dax_prompt, "dax_generation")
+                    else:
+                        raise openai_error
+            # Use Anthropic if OpenAI not available
             elif self.anthropic_client:
                 response = await self._get_anthropic_response(dax_prompt, "dax_generation")
             else:
@@ -470,7 +490,7 @@ Use this current information to provide up-to-date responses. Do not mention kno
                 user_content = message
             
             response = self.anthropic_client.messages.create(
-                model="claude-3-sonnet-20240229",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=2000,
                 system=system_content,
                 messages=[
